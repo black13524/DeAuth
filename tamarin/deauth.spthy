@@ -34,12 +34,12 @@ rule Provision:
   -->
     [ WS_Initial($UT, $WS, ub_enc_pub, ~ws_sign_ltk, ~attestation_result, certws)
     , UT_Initial($UT, ~ub_enc_ltk, certda, ~attestation_result)
-    ]  
+    ]
 
 
 // WS Start session
 rule WS_Start_Session[role="WS"]:
-    let 
+    let
         shared_secret = ub_pub^~ws_enc_ephem
         ws_enc_pub = 'g'^~ws_enc_ephem
         enc_init = senc(~uwb_params, shared_secret)
@@ -57,16 +57,16 @@ rule WS_Start_Session[role="WS"]:
   --[ WS_Encrypt_Session($WS, $UT, ~uwb_params)
     , Send_Session_Secret(~uwb_params)
     ]->
-    [ !WS_Start_Session($WS, $UT, ~uwb_params, h(msg_init), result, shared_secret, ~challenge)
+    [ WS_Start_Session($WS, $UT, ~uwb_params, h(msg_init), result, shared_secret, ~challenge)
     , Out(<msg_init, sig_init, certws>)
-    ] 
+    ]
 
 rule WS_Check_Attestation[role="WS"]:
     let
       uwb_key = get_uwb_key(uwb_params)
       fr_poll = sdec(fr_poll_enc, uwb_key)
     in
-    [ !WS_Start_Session($WS, $UT, uwb_params, msg_hash, result, shared_secret, challenge)
+    [ WS_Start_Session($WS, $UT, uwb_params, msg_hash, result, shared_secret, challenge)
     , In(fr_poll_enc)
 	]
   --[ _restrict( <'header', msg_hash, h(result), challenge> = fr_poll )
@@ -84,7 +84,7 @@ rule UT_Start_Session[role="UT"]:
     , _restrict(verify(da_sign, h(sign_pub), certda) = true)
       // Additional verifications are done in this stage
       // e.g. timestamp freshness, policy checks, device id checks ...
-    ]-> 
+    ]->
     [ UT_Start_Session(UT, ub_ltk, msg_init, h(msg_init), result)]
 
 rule UT_Decrypt_Session[role="UT"]:
@@ -115,16 +115,28 @@ lemma sts_session_secrecy:
 
 // authentication
 lemma sts_session_authentication:
-    "All #i secret. Receive_Session_Secret(secret) @i
-      ==> Ex #j secret. Send_Session_Secret(secret) @j & j<i"
+    "All ws ut uwb_key secret #i.
+      UT_Decrypt_message(ws, ut, uwb_key) @i
+      & Receive_Session_Secret(secret) @i
+      ==> Ex #j. WS_Encrypt_Session(ws, ut, secret) @j & j < i"
 
 // The session secret remains secret throughout the protocol run
 lemma attestation_result_secrecy:
-    "All #i hash att challenge. Receieve_Attestation(h(<'header', hash, att, challenge>)) @i
+    "All #i hash att challenge. Receieve_Attestation(<'header', hash, att, challenge>) @i
       ==> not Ex #j. K(att)@j"
 
 lemma attestation_result_authentication:
     "All #i att. Receieve_Attestation(att)@i
       ==> Ex #j. Send_Attestation(att)@j & j<i"
+
+// Each attestation is accepted at most once — rules out replay
+lemma no_replay:
+    "All #i #j att. Receieve_Attestation(att) @i & Receieve_Attestation(att) @j
+      ==> #i = #j"
+
+lemma attestation_result_secrecy_reachable:
+    exists-trace
+      "Ex #i hash att challenge. Receieve_Attestation(<'header', hash, att, challenge>) @i"
+
 
 end
