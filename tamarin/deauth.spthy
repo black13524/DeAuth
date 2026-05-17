@@ -19,8 +19,8 @@ rule Provision:
       // but by provisioning the DA signing public key to UT
       // we can model the link between the WS signing key and DA signing key.
       //
-      // The certificate for the DA is modeld is a public key.
-      // The certificate for the WS is modeld as a signature over the WS public key by the DA signing key.
+      // The certificate for the DA is modeled is a public key.
+      // The certificate for the WS is modeled as a signature over the WS public key by the DA signing key.
       certda = pk(~da_sign_ltk)
       certws = <pk(~ws_sign_ltk), sign(h(pk(~ws_sign_ltk)), ~da_sign_ltk)>
 
@@ -70,7 +70,7 @@ rule WS_Check_Attestation[role="WS"]:
     , In(fr_poll_enc)
 	]
   --[ _restrict( <'header', msg_hash, h(result), challenge> = fr_poll )
-    , Receieve_Attestation(fr_poll)
+    , Receive_Attestation(fr_poll)
     ]-> []
 
 // Check sign
@@ -106,7 +106,7 @@ rule UT_Decrypt_Session[role="UT"]:
 
 // There exists a trace that executes the full protocol
 lemma exist_path:
-    exists-trace "Ex #i att. Receieve_Attestation(att) @i"
+    exists-trace "Ex #i att. Receive_Attestation(att) @i"
 
 // The session secret remains secret throughout the protocol run
 lemma sts_session_secrecy:
@@ -122,21 +122,21 @@ lemma sts_session_authentication:
 
 // The session secret remains secret throughout the protocol run
 lemma attestation_result_secrecy:
-    "All #i hash att challenge. Receieve_Attestation(<'header', hash, att, challenge>) @i
+    "All #i hash att challenge. Receive_Attestation(<'header', hash, att, challenge>) @i
       ==> not Ex #j. K(att)@j"
 
 lemma attestation_result_authentication:
-    "All #i att. Receieve_Attestation(att)@i
+    "All #i att. Receive_Attestation(att)@i
       ==> Ex #j. Send_Attestation(att)@j & j<i"
 
 // Each attestation is accepted at most once — rules out replay
 lemma no_replay:
-    "All #i #j att. Receieve_Attestation(att) @i & Receieve_Attestation(att) @j
+    "All #i #j att. Receive_Attestation(att) @i & Receive_Attestation(att) @j
       ==> #i = #j"
 
 lemma attestation_result_secrecy_reachable:
     exists-trace
-      "Ex #i hash att challenge. Receieve_Attestation(<'header', hash, att, challenge>) @i"
+      "Ex #i hash att challenge. Receive_Attestation(<'header', hash, att, challenge>) @i"
 
 
 end
